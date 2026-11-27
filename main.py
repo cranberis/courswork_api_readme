@@ -1,7 +1,7 @@
 from typing import TypeVar, Generic, Optional, List
 from pydantic import BaseModel, Field, EmailStr
 from fastapi import FastAPI, HTTPException, status
-from datetime import datetime
+from datetime import datetime, timezone
 
 # ==========================================
 # 1. Общие модели (Аналог ErrorResponse и SuccessResponse)
@@ -14,13 +14,6 @@ class SuccessResponse(BaseModel, Generic[T]):
 
     success: bool = True
     data: Optional[T] = None
-
-
-class ErrorResponse(BaseModel):
-    """Формат ответа при ошибке"""
-
-    error: str
-    message: str
 
 
 # ==========================================
@@ -125,6 +118,7 @@ app = FastAPI(
     "/api/v1/users/",
     response_model=SuccessResponse[List[User]],
     summary="Получить список всех пользователей",
+    tags=["users"],
 )
 async def list_users():
     return SuccessResponse[List[User]](data=list(users_db.values()))
@@ -134,6 +128,8 @@ async def list_users():
     "/api/v1/users/{user_id}",
     response_model=SuccessResponse[User],
     summary="Получить пользователя по ID",
+    tags=["users"],
+    responses={404: {"description": "Пользователь не найден"}},
 )
 async def get_user(user_id: int):
     user = users_db.get(user_id)
@@ -149,11 +145,15 @@ async def get_user(user_id: int):
     response_model=SuccessResponse[User],
     status_code=status.HTTP_201_CREATED,
     summary="Создать нового пользователя",
+    tags=["users"],
 )
 async def create_user(req: CreateUserRequest):
     global next_user_id
     new_user = User(
-        id=next_user_id, email=req.email, name=req.name, created_at=datetime.utcnow()
+        id=next_user_id,
+        email=req.email,
+        name=req.name,
+        created_at=datetime.now(timezone.utc),
     )
     users_db[next_user_id] = new_user
     next_user_id += 1
@@ -164,6 +164,8 @@ async def create_user(req: CreateUserRequest):
     "/api/v1/users/{user_id}",
     response_model=SuccessResponse[User],
     summary="Обновить данные пользователя (частично)",
+    tags=["users"],
+    responses={404: {"description": "Пользователь не найден"}},
 )
 async def update_user(user_id: int, req: UpdateUserRequest):
     user = users_db.get(user_id)
@@ -186,6 +188,8 @@ async def update_user(user_id: int, req: UpdateUserRequest):
     "/api/v1/users/{user_id}",
     status_code=status.HTTP_204_NO_CONTENT,
     summary="Удалить пользователя",
+    tags=["users"],
+    responses={404: {"description": "Пользователь не найден"}},
 )
 async def delete_user(user_id: int):
     if user_id not in users_db:
@@ -205,6 +209,7 @@ async def delete_user(user_id: int):
     "/api/v1/todos/",
     response_model=SuccessResponse[List[Todo]],
     summary="Получить список всех задач",
+    tags=["todos"],
 )
 async def list_todos():
     return SuccessResponse[List[Todo]](data=list(todos_db.values()))
@@ -214,6 +219,8 @@ async def list_todos():
     "/api/v1/todos/{todo_id}",
     response_model=SuccessResponse[Todo],
     summary="Получить задачу по ID",
+    tags=["todos"],
+    responses={404: {"description": "Задача не найдена"}},
 )
 async def get_todo(todo_id: int):
     todo = todos_db.get(todo_id)
@@ -229,6 +236,7 @@ async def get_todo(todo_id: int):
     response_model=SuccessResponse[Todo],
     status_code=status.HTTP_201_CREATED,
     summary="Создать новую задачу",
+    tags=["todos"],
 )
 async def create_todo(req: CreateTodoRequest):
     global next_todo_id
@@ -238,8 +246,8 @@ async def create_todo(req: CreateTodoRequest):
         title=req.title,
         description=req.description,
         done=req.done,
-        created_at=datetime.utcnow(),
-        updated_at=datetime.utcnow(),
+        created_at=datetime.now(timezone.utc),
+        updated_at=datetime.now(timezone.utc),
     )
     todos_db[next_todo_id] = new_todo
     next_todo_id += 1
@@ -250,6 +258,8 @@ async def create_todo(req: CreateTodoRequest):
     "/api/v1/todos/{todo_id}",
     response_model=SuccessResponse[Todo],
     summary="Обновить задачу (частично)",
+    tags=["todos"],
+    responses={404: {"description": "Задача не найдена"}},
 )
 async def update_todo(todo_id: int, req: UpdateTodoRequest):
     todo = todos_db.get(todo_id)
@@ -265,7 +275,7 @@ async def update_todo(todo_id: int, req: UpdateTodoRequest):
         todo.description = req.description
     if req.done is not None:
         todo.done = req.done
-    todo.updated_at = datetime.utcnow()
+    todo.updated_at = datetime.now(timezone.utc)
 
     todos_db[todo_id] = todo
     return SuccessResponse[Todo](data=todo)
@@ -275,6 +285,8 @@ async def update_todo(todo_id: int, req: UpdateTodoRequest):
     "/api/v1/todos/{todo_id}",
     status_code=status.HTTP_204_NO_CONTENT,
     summary="Удалить задачу",
+    tags=["todos"],
+    responses={404: {"description": "Задача не найдена"}},
 )
 async def delete_todo(todo_id: int):
     if todo_id not in todos_db:
